@@ -66,5 +66,15 @@ public class Block {
         gl.glVertex2d( pB.x + h, pB.y + h );
         gl.glEnd();
     }
+
+	/* (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "Block [i=" + i + ", j=" + j + ", pB=" + pB + "]";
+	}
+    
+    
     
 }

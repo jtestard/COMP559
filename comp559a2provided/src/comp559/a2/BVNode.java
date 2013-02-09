@@ -90,6 +90,23 @@ public class BVNode {
     }
     
     /**
+     * Updates the bounding disk center for this node
+     * only if the node has not been visited before during
+     * this phase of collision detection.
+     * @param visitID
+     */
+    public void updateBoundingDisk(int visitID) {
+    	if (this.visitID!=visitID) {
+    		this.visitID = visitID;
+    		this.boundingDisc.updatecW();
+    	}
+    }
+    
+    public boolean alreadyVisited(int visitID) {
+    	return this.visitID == visitID;
+    }
+    
+    /**
      * Draws the bounding volume spheres
      * @param drawable
      */

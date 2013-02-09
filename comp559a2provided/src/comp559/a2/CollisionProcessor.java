@@ -20,10 +20,7 @@ import mintools.swing.VerticalFlowPanel;
  */
 public class CollisionProcessor {
 
-    private List<RigidBody> bodies;
-    
-    /** Used during collision detection*/
-    public double distances[];    
+    private List<RigidBody> bodies; 
     
     /**
      * The current contacts that resulted in the last call to process collisions
@@ -36,7 +33,6 @@ public class CollisionProcessor {
      */
     public CollisionProcessor( List<RigidBody> bodies ) {
         this.bodies = bodies;
-        distances = new double[4];
     }
     
     /** keeps track of the time used for collision detection on the last call */
@@ -86,14 +82,16 @@ public class CollisionProcessor {
         }        
     }
     
-    private Block b1=null,b2=null;
+	private BVNode smallest;
+	private BVNode largest;
+	private BVNode closest;
+	private BVNode furthest;
     
     /**
      * Checks for collision between boundary blocks on two rigid bodies.
-     * TODO: This needs to be improved as the n-squared block test is too slow!
      * @param body1
      * @param body2
-     */
+     */    
     private void narrowPhase( RigidBody body1, RigidBody body2 ) {
         if ( ! useBVTree.getValue() ) {
             for ( Block b1 : body1.blocks ) {
@@ -102,13 +100,42 @@ public class CollisionProcessor {
                 }
             }
         } else {
-        	System.out.println("Next Collision detection phase : " + body1.root.boundingDisc.cW + "," + body2.root.boundingDisc.cW);
-        	if (hasCollision(body1.root,body2.root)) {
-        		processCollision(body1,b1,body2,b2);
-        	}
+        	detectCollision(body1,body2,body1.root,body2.root);
         }
     }
+	
+    /** This method cheaply computes the square of the distance between two discs.
+     * We only need to find which distance is smallest, so there is no point in computing 
+     * the square root.
+     */ 
+    private static double distanceSquared(Disc disk1, Disc disk2) {
+    	return disk1.cW.x*disk2.cW.x + disk1.cW.y*disk2.cW.y;
+    }
     
+    
+    private void largest(BVNode left,BVNode right) {
+    	if (left.boundingDisc.r > right.boundingDisc.r) {
+    		largest = left;
+    		smallest = right;
+    	} else {
+    		largest = right;
+    		smallest = left;
+    	}
+    }
+    
+    private void closest(BVNode node, BVNode leftchild, BVNode rightchild) {
+    	if (distanceSquared(node.boundingDisc,leftchild.boundingDisc)>
+    		distanceSquared(node.boundingDisc,rightchild.boundingDisc)){
+    		//rightchild is closest to the node
+    		closest = rightchild;
+    		furthest = leftchild;
+    	} else {
+    		//leftchild is closest to the node
+    		closest = leftchild;
+    		furthest = rightchild;
+    	}
+    }
+	
     /**
      * This method returns true if there exists a collision and false otherwise. Note that the
      * two block arguments are only assigned if the method returns true.
@@ -118,134 +145,45 @@ public class CollisionProcessor {
      * @param b2
      * @return
      */
-    public boolean hasCollision(BVNode left, BVNode right) {
+    public void detectCollision(RigidBody body1, RigidBody body2, BVNode left, BVNode right) {
     	Disc leftDisk = left.boundingDisc;    	
     	Disc rightDisk = right.boundingDisc;
-    	leftDisk.updatecW();
-    	rightDisk.updatecW();
+    	if (left.alreadyVisited(visitID) && right.alreadyVisited(visitID))
+    		return;
+    	left.updateBoundingDisk(visitID);
+    	right.updateBoundingDisk(visitID);	
     	if (leftDisk.intersects(rightDisk)) {
     		//If nodes are leaves we can process the collisions directly.
     		if (left.isLeaf()&&right.isLeaf()) {
-    			b1 = left.leafBlock;
-    			b2 = right.leafBlock;
-    			return true;
-    		} else if (left.isLeaf()) {
+    			Block b1 = left.leafBlock;
+    			Block b2 = right.leafBlock;
+    			processCollision(body1,b1,body2,b2);
+    		}
+    		if (left.isLeaf()) {
     			//Right block is not a leaf.
-    			Disc rightleftDisk = right.child1.boundingDisc;
-    			if (right.child2==null) {
-    				return hasCollision(left,right.child1);
-    			}
-    			Disc rightrightDisk = right.child2.boundingDisc;
-    			rightleftDisk.updatecW();
-    			rightrightDisk.updatecW();
-    			distances[0] = distanceSquared(leftDisk,rightleftDisk);
-    			distances[1] = distanceSquared(leftDisk,rightrightDisk);
-    			switch (smallestDistance(true)) {
-    			case 0:
-    				if (leftDisk.intersects(rightleftDisk))
-    					return hasCollision(left,right.child1);
-    				break;
-    			default:
-    				if (leftDisk.intersects(rightrightDisk))
-    					return hasCollision(left,right.child2);
-    			}
+    			right.child1.boundingDisc.updatecW();
+    			right.child2.boundingDisc.updatecW();
+    			closest(left,right.child1,right.child2);
+    			detectCollision(body1,body2,left,closest);
+    			detectCollision(body1,body2,left,furthest);
     		} else if (right.isLeaf()) {
     			//Left block is not a leaf.
-    			Disc leftleftDisk = left.child1.boundingDisc;
-    			if (left.child2==null) {
-    				return hasCollision(left.child1,right);
-    			}
-    			Disc leftrightDisk = left.child2.boundingDisc;
-    			leftleftDisk.updatecW();
-    			leftrightDisk.updatecW();
-    			distances[0] = distanceSquared(rightDisk,leftleftDisk);
-    			distances[1] = distanceSquared(rightDisk,leftrightDisk);
-    			switch (smallestDistance(true)) {
-    			case 0:
-    				if (rightDisk.intersects(leftleftDisk))
-    					return hasCollision(left.child1,right);
-    				break;
-    			default:
-    				if (rightDisk.intersects(leftrightDisk))
-    					return hasCollision(left.child2,right);
-    			}
+    			left.child1.boundingDisc.updatecW();
+    			left.child2.boundingDisc.updatecW();    			
+    			closest(right,left.child1,left.child2);	
+    			detectCollision(body1,body2,right,closest);
+    			detectCollision(body1,body2,right,furthest);    			
     		} else {
-        		//Else we need to do a narrower search.
-        		Disc leftleftDisk = left.child1.boundingDisc;
-        		Disc leftrightDisk = left.child2.boundingDisc;
-        		Disc rightleftDisk = right.child1.boundingDisc;
-        		Disc rightrightDisk = right.child2.boundingDisc;
-        		leftleftDisk.updatecW();
-        		leftrightDisk.updatecW();
-        		rightleftDisk.updatecW();
-        		rightrightDisk.updatecW();        		
-        		//Compute the distances between the centers of the discs in world coordinates.
-        		distances[0] = distanceSquared(leftleftDisk,rightleftDisk);
-        		distances[1] = distanceSquared(leftleftDisk,rightrightDisk);
-        		distances[2] = distanceSquared(leftrightDisk,rightleftDisk);
-        		distances[3] = distanceSquared(leftrightDisk,rightrightDisk);
-        		int smallest = smallestDistance(false);
-        		System.out.println("smallest distance :" + smallest);
-        		switch(smallest) {
-        		case 0:
-        			if (leftleftDisk.intersects(rightleftDisk))
-        				return hasCollision(left.child1,right.child1);
-        			break;
-        		case 1:
-        			if (leftleftDisk.intersects(rightrightDisk))
-        				return hasCollision(left.child1,right.child2);
-        			break;
-        		case 2:
-        			if (leftrightDisk.intersects(rightleftDisk))
-        				return hasCollision(left.child2,right.child1);
-        			break;
-        		default :
-        			if (leftrightDisk.intersects(rightrightDisk))
-        				return hasCollision(left.child2,right.child2);
-        		}    			
+    			largest(left,right);
+    			largest.child1.boundingDisc.updatecW();
+    			largest.child2.boundingDisc.updatecW();
+    			closest(smallest,largest.child1,largest.child2);
+    			detectCollision(body1,body2,smallest,closest);
+    			detectCollision(body1,body2,smallest,furthest);
     		}
     	}
-    	System.out.println("Disks not intersecting : " + leftDisk.cW + "," + leftDisk.r + "," + leftDisk.body.index + ";"+ rightDisk.cW + "," + rightDisk.r + "," +  rightDisk.body.index);
-    	return false;
-    }
-    
-    /** This method cheaply computes the square of the distance between two discs.
-     * We only need to find which distance is smallest, so there is no point in computing 
-     * the square root.
-     */ 
-    public double distanceSquared(Disc disk1, Disc disk2) {
-    	return disk1.cW.x*disk2.cW.x + disk1.cW.y*disk2.cW.y;
-    }
-    
-    /**
-     * Small function that returns the index in the distances array of the smallest distance
-     * between two disk when solving for collisions.
-     * @return
-     */
-    public int smallestDistance(boolean size2) {
-    	// We have only two distances to cover (only one node isn't a leaf).
-    	if (size2) {
-    		return (distances[0]>distances[1])?1:0;
-    	} else {
-        	int first, second;
-        	double d1,d2;
-        	if (distances[0]>distances[1]) {
-        		d1 = distances[1];
-        		first = 1;
-        	} else {
-        		d1 = distances[0];
-        		first = 0;
-        	}
-        	if (distances[2]>distances[3]) {
-        		d2 = distances[3];
-        		second = 3;
-        	} else {
-        		d2 = distances[2];
-        		second = 2;
-        	}
-        	return (d1>d2)?second:first;    		
-    	}
-    }
+    }	    
+
     
     /** 
      * The visitID is used to tag boundary volumes that are visited in 
