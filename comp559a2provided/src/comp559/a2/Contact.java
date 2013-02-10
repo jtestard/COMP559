@@ -30,6 +30,9 @@ public class Contact {
     /** Position of contact point in world coordinates */
     Point2d contactW = new Point2d();
     
+    /** Contact jacobian*/
+    double jacobian[][];
+    
     /**
      * Creates a new contact, and assigns it an index
      * @param body1
@@ -44,6 +47,8 @@ public class Contact {
         this.normal.set( normal );        
         index = nextContactIndex++;        
         // TODO: you may want to add code here to compute and store the contact Jacobian
+        jacobian = new double[2][6];
+        
     }
     
     /**

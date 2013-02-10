@@ -72,7 +72,7 @@ public class Block {
 	 */
 	@Override
 	public String toString() {
-		return "Block [i=" + i + ", j=" + j + ", pB=" + pB + "]";
+		return "Block [c="+ c + ", i=" + i + ", j=" + j + ", pB=" + pB + "]";
 	}
     
     

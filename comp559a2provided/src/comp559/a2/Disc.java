@@ -27,6 +27,8 @@ public class Disc {
     /** radius */
     double r;
     
+    GLAutoDrawable drawable;
+    
     /** body to which this disc is associated */
     RigidBody body;
     
@@ -82,6 +84,7 @@ public class Disc {
      * @param drawable
      */
     public void display( GLAutoDrawable drawable ) {
+    	this.drawable = drawable;
         body.transformB2W.transform(cB, cW);
         GL2 gl = drawable.getGL().getGL2();
         gl.glPushMatrix();
@@ -93,6 +96,10 @@ public class Disc {
         gl.glDrawElements( GL.GL_LINE_LOOP, size, GL.GL_UNSIGNED_SHORT, indexBuffer );            
         gl.glDisableClientState( GL2.GL_VERTEX_ARRAY );        
         gl.glPopMatrix();
+    }
+    
+    public void display() {
+    	display(drawable);
     }
     
     /**
@@ -121,5 +128,13 @@ public class Disc {
     public boolean intersects( Disc d ) {
         return cW.distanceSquared(d.cW) < (r + d.r)*(r + d.r);
     }
+
+	/* (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "Disc [cB=" + cB + ", cW=" + cW + ", r=" + r + "]";
+	}
     
 }

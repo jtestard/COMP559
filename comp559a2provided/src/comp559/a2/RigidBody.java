@@ -184,8 +184,14 @@ public class RigidBody {
      * @param dt step size
      */
     public void advanceTime( double dt ) {
-        if ( !pinned ) {            
+        if ( !pinned ) {
+        	//linear vs angular 
+        	// x = theta (angular postiion)
+        	// v = omega (angular velocity)
+        	// a = torque (angular accelaration)
         	omega += (torque/massAngular) * dt;
+        	//We put the theta assignment after the omega assignment
+        	//because we need omega+1 for theta (backward euler), cf discussion board.
         	theta += omega * dt;
             v.x += 1.0 / massLinear * force.x * dt;
             v.y += 1.0 / massLinear * force.y * dt;

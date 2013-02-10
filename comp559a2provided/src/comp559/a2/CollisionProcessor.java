@@ -1,7 +1,12 @@
 package comp559.a2;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.logging.FileHandler;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 import javax.swing.JPanel;
 import javax.swing.border.TitledBorder;
@@ -22,6 +27,7 @@ public class CollisionProcessor {
 
     private List<RigidBody> bodies; 
     
+    private static Logger log = Logger.getLogger(CollisionProcessor.class.getName());
     /**
      * The current contacts that resulted in the last call to process collisions
      */
@@ -48,7 +54,17 @@ public class CollisionProcessor {
     public void processCollisions( double dt ) {
         contacts.clear();
         Contact.nextContactIndex = 0;
-        
+        try {
+        	FileHandler handler = new FileHandler((new Date())+".log");
+        	handler.setFormatter(new SimpleFormatter());
+			log.addHandler(handler);
+		} catch (SecurityException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
         long now = System.nanoTime();
         broadPhase();
         collisionDetectTime = ( System.nanoTime() - now ) * 1e-9;
@@ -96,6 +112,8 @@ public class CollisionProcessor {
         if ( ! useBVTree.getValue() ) {
             for ( Block b1 : body1.blocks ) {
                 for ( Block b2 : body2.blocks ) {
+                	b1.c.set(1.0f,0,0);
+                	b2.c.set(0,1.0f,0);
                     processCollision( body1, b1, body2, b2 );
                 }
             }
@@ -109,11 +127,11 @@ public class CollisionProcessor {
      * the square root.
      */ 
     private static double distanceSquared(Disc disk1, Disc disk2) {
-    	return disk1.cW.x*disk2.cW.x + disk1.cW.y*disk2.cW.y;
+    	return disk1.cW.distanceSquared(disk2.cW);
     }
     
     
-    private void largest(BVNode left,BVNode right) {
+    public void largest(BVNode left,BVNode right) {
     	if (left.boundingDisc.r > right.boundingDisc.r) {
     		largest = left;
     		smallest = right;
@@ -123,7 +141,7 @@ public class CollisionProcessor {
     	}
     }
     
-    private void closest(BVNode node, BVNode leftchild, BVNode rightchild) {
+    public void closest(BVNode node, BVNode leftchild, BVNode rightchild) {
     	if (distanceSquared(node.boundingDisc,leftchild.boundingDisc)>
     		distanceSquared(node.boundingDisc,rightchild.boundingDisc)){
     		//rightchild is closest to the node
@@ -148,19 +166,18 @@ public class CollisionProcessor {
     public void detectCollision(RigidBody body1, RigidBody body2, BVNode left, BVNode right) {
     	Disc leftDisk = left.boundingDisc;    	
     	Disc rightDisk = right.boundingDisc;
-    	if (left.alreadyVisited(visitID) && right.alreadyVisited(visitID))
-    		return;
+//    	if (left.alreadyVisited(visitID) && right.alreadyVisited(visitID))
+//    		return;
     	left.updateBoundingDisk(visitID);
-    	right.updateBoundingDisk(visitID);	
+    	right.updateBoundingDisk(visitID);
     	if (leftDisk.intersects(rightDisk)) {
     		//If nodes are leaves we can process the collisions directly.
     		if (left.isLeaf()&&right.isLeaf()) {
     			Block b1 = left.leafBlock;
-    			Block b2 = right.leafBlock;
+    			Block b2 = right.leafBlock;    			
     			processCollision(body1,b1,body2,b2);
-    		}
-    		if (left.isLeaf()) {
-    			//Right block is not a leaf.
+    		} else if (left.isLeaf()) {
+    			//Right block is not a leaf. 
     			right.child1.boundingDisc.updatecW();
     			right.child2.boundingDisc.updatecW();
     			closest(left,right.child1,right.child2);
@@ -169,17 +186,22 @@ public class CollisionProcessor {
     		} else if (right.isLeaf()) {
     			//Left block is not a leaf.
     			left.child1.boundingDisc.updatecW();
-    			left.child2.boundingDisc.updatecW();    			
+    			left.child2.boundingDisc.updatecW();
     			closest(right,left.child1,left.child2);	
-    			detectCollision(body1,body2,right,closest);
-    			detectCollision(body1,body2,right,furthest);    			
+    			detectCollision(body1,body2,closest,right);
+    			detectCollision(body1,body2,furthest,right);
     		} else {
     			largest(left,right);
     			largest.child1.boundingDisc.updatecW();
     			largest.child2.boundingDisc.updatecW();
-    			closest(smallest,largest.child1,largest.child2);
-    			detectCollision(body1,body2,smallest,closest);
-    			detectCollision(body1,body2,smallest,furthest);
+    			closest(smallest,largest.child1,largest.child2);    			
+    			if (largest.equals(left)) {
+        			detectCollision(body1,body2,closest,smallest);
+        			detectCollision(body1,body2,furthest,smallest);
+    			} else {
+        			detectCollision(body1,body2,smallest,closest);
+        			detectCollision(body1,body2,smallest,furthest);
+    			}
     		}
     	}
     }	    
@@ -222,7 +244,7 @@ public class CollisionProcessor {
      * @param body2
      * @param b2
      */
-    private void processCollision( RigidBody body1, Block b1, RigidBody body2, Block b2 ) {        
+    private void processCollision( RigidBody body1, Block b1, RigidBody body2, Block b2) {        
         double k = contactSpringStiffness.getValue();
         double c1 = contactSpringDamping.getValue();
         double threshold = separationVelocityThreshold.getValue();
@@ -232,6 +254,7 @@ public class CollisionProcessor {
         body2.transformB2W.transform( b2.pB, tmp2 );
         double distance = tmp1.distance(tmp2);
         if ( distance < Block.radius * 2 ) {
+        	//log.info("Collision : " + tmp1 + "," + tmp2);
             // contact point at halfway between points 
             // NOTE: this assumes that the two blocks have the same radius!
             contactW.interpolate( tmp1, tmp2, .5 );
