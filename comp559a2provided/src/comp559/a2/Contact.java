@@ -31,7 +31,10 @@ public class Contact {
     Point2d contactW = new Point2d();
     
     /** Contact jacobian*/
-    double jacobian[][];
+    double jacobian[][]=new double[2][6];
+    Vector2d ri1 = new Vector2d();
+    Vector2d ri2 = new Vector2d();
+    private Vector2d tangent = new Vector2d();
     
     /**
      * Creates a new contact, and assigns it an index
@@ -44,11 +47,25 @@ public class Contact {
         this.body1 = body1;
         this.body2 = body2;
         this.contactW.set( contactW );
-        this.normal.set( normal );        
-        index = nextContactIndex++;        
-        // TODO: you may want to add code here to compute and store the contact Jacobian
-        jacobian = new double[2][6];
+        this.normal.set( normal );
+        this.tangent.set(-normal.y,normal.x);
+        index = nextContactIndex++;
+        ri1.set(contactW.x-body1.x.x,contactW.y-body1.x.y);
+        ri2.set(contactW.x-body2.x.x,contactW.y-body2.x.y);        
         
+        jacobian[0][0]=-normal.x;
+        jacobian[0][1]=-normal.y;
+        jacobian[0][2]=-(ri1.x*normal.y-normal.x*ri1.y);
+        jacobian[0][3]=normal.x;
+        jacobian[0][4]=normal.y;
+        jacobian[0][5]=ri2.x*normal.y-normal.x*ri2.y;
+        
+        jacobian[1][0]=-tangent.x;
+        jacobian[1][1]=-tangent.y;
+        jacobian[1][2]=-(ri1.x*tangent.y-tangent.x*ri1.y);
+        jacobian[1][3]=tangent.x;
+        jacobian[1][4]=tangent.y;
+        jacobian[1][5]=ri2.x*tangent.y-tangent.x*ri2.y;        
     }
     
     /**
