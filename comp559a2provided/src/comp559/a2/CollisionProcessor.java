@@ -10,8 +10,11 @@ import java.util.logging.SimpleFormatter;
 
 import javax.swing.JPanel;
 import javax.swing.border.TitledBorder;
+import javax.vecmath.Matrix3d;
 import javax.vecmath.Point2d;
 import javax.vecmath.Vector2d;
+
+import no.uib.cipr.matrix.DenseVector;
 
 import mintools.parameters.BooleanParameter;
 import mintools.parameters.DoubleParameter;
@@ -26,8 +29,6 @@ import mintools.swing.VerticalFlowPanel;
 public class CollisionProcessor {
 
     private List<RigidBody> bodies; 
-    
-    private static Logger log = Logger.getLogger(CollisionProcessor.class.getName());
     /**
      * The current contacts that resulted in the last call to process collisions
      */
@@ -47,6 +48,21 @@ public class CollisionProcessor {
     /** keeps track of the time used to solve the LCP based velocity update on the last call */
     double collisionSolveTime = 0;
     
+    Vector2d vunconstrained = new Vector2d();
+    
+    Vector2d vnew = new Vector2d();
+    
+    Vector2d fa = new Vector2d();
+    
+    Matrix3d jacobian = new Matrix3d();
+    
+    //The Mass matrix is a diagonal matrix, so we only need 
+    //an array to represent it.
+    double[] massMatrix = new double[6];
+    double[] massInverse = new double[6];
+    
+    DenseVector u = new DenseVector(6);
+    DenseVector fexternal = new DenseVector(6);    
     /**
      * Processes all collisions 
      * @param dt time step
@@ -54,31 +70,100 @@ public class CollisionProcessor {
     public void processCollisions( double dt ) {
         contacts.clear();
         Contact.nextContactIndex = 0;
-        try {
-        	FileHandler handler = new FileHandler((new Date())+".log");
-        	handler.setFormatter(new SimpleFormatter());
-			log.addHandler(handler);
-		} catch (SecurityException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
         long now = System.nanoTime();
         broadPhase();
         collisionDetectTime = ( System.nanoTime() - now ) * 1e-9;
                 
         if ( contacts.size() > 0  && doLCP.getValue() ) {
             now = System.nanoTime();
-
             double bounce = restitution.getValue();
             double mu = friction.getValue();
-            // TODO: Compute velocity update with iterative solve of contact constraint matrix.
-
+            //int n = contacts
             
+            double lambda=0;
+            for (Contact c : contacts) {
+                //u = v1,w1,v2,w2 linear and angular velocity
+                u.set(0,c.body1.v.x);
+                u.set(1,c.body1.v.y);
+                u.set(2,c.body1.omega);
+                u.set(3,c.body2.v.x);
+                u.set(4,c.body2.v.y);
+                u.set(5,c.body2.omega);                
+                
+                fexternal.set(0,c.body1.force.x*c.body1.massLinear);
+                fexternal.set(1,c.body1.force.y*c.body1.massLinear);
+                fexternal.set(2,c.body1.torque*c.body1.massAngular);
+                fexternal.set(3,c.body2.force.x*c.body2.massLinear);
+                fexternal.set(4,c.body2.force.y*c.body2.massLinear);
+                fexternal.set(5,c.body2.torque*c.body2.massAngular);
+                
+                fexternal.scale(dt);
+                DenseVector b = new DenseVector(2);
+                //b = J (u + h * M -1 fext)
+                u.add(fexternal);
+                c.jacobian.mult(u, b);
+                
+                //  the projected Guass-Seidel complementarity solver.
+                //A = J M -1 J^t h lambda
+
+
+
+                //velocity update
+                
+            	
+            	
+            	
+            	
+            	
+            	
+            	
+            	//Compute lambda max.
+            	double lambda_max = contact.normal.length();//normal force
+            	//Compute mass matrix and it's inverse.
+            	//Compute tentative velocity
+                vunconstrained.set(contact.body1.v);
+                fillMassMatrices(contact.body1,contact.body2);
+//                contact.body1.force
+            	//Compute mc
+            	
+            	//Comute lambda
+            	
+            	//Constrain lambda;
+            	constrainLambda(lambda,mu*lambda_max);
+            }
             collisionSolveTime = (System.nanoTime() - now) * 1e-9;
         }
+    }
+    
+    private void fillMassMatrices(RigidBody body1, RigidBody body2) {
+    	massMatrix[0] = body1.massLinear;
+    	massMatrix[1] = 1;
+    	massMatrix[2] = 1;
+    	massMatrix[3] = body2.massLinear;
+    	massMatrix[4] = 1;
+    	massMatrix[5] = 1;
+    	massInverse[0] = body1.minv;
+    	massInverse[1] = 1;
+    	massInverse[2] = 1;
+    	massInverse[3] = body2.minv;
+    	massInverse[4] = 1;
+    	massInverse[5] = 1;
+    }
+    
+    /**
+     * Returns new constrained lambda.
+     * @param lambda
+     * @param mu
+     * @return
+     */
+    private double constrainLambda(double lambda, double bound) {
+    	if (lambda > bound) {
+    		return bound;
+    	} else if (lambda < -bound) {
+    		return -bound;
+    	} else {
+    		return lambda;
+    	}
     }
     
     /**
@@ -98,10 +183,6 @@ public class CollisionProcessor {
         }        
     }
     
-	private BVNode smallest;
-	private BVNode largest;
-	private BVNode closest;
-	private BVNode furthest;
     
     /**
      * Checks for collision between boundary blocks on two rigid bodies.
@@ -112,8 +193,6 @@ public class CollisionProcessor {
         if ( ! useBVTree.getValue() ) {
             for ( Block b1 : body1.blocks ) {
                 for ( Block b2 : body2.blocks ) {
-                	b1.c.set(1.0f,0,0);
-                	b2.c.set(0,1.0f,0);
                     processCollision( body1, b1, body2, b2 );
                 }
             }
@@ -129,30 +208,6 @@ public class CollisionProcessor {
     private static double distanceSquared(Disc disk1, Disc disk2) {
     	return disk1.cW.distanceSquared(disk2.cW);
     }
-    
-    
-    public void largest(BVNode left,BVNode right) {
-    	if (left.boundingDisc.r > right.boundingDisc.r) {
-    		largest = left;
-    		smallest = right;
-    	} else {
-    		largest = right;
-    		smallest = left;
-    	}
-    }
-    
-    public void closest(BVNode node, BVNode leftchild, BVNode rightchild) {
-    	if (distanceSquared(node.boundingDisc,leftchild.boundingDisc)>
-    		distanceSquared(node.boundingDisc,rightchild.boundingDisc)){
-    		//rightchild is closest to the node
-    		closest = rightchild;
-    		furthest = leftchild;
-    	} else {
-    		//leftchild is closest to the node
-    		closest = leftchild;
-    		furthest = rightchild;
-    	}
-    }
 	
     /**
      * This method returns true if there exists a collision and false otherwise. Note that the
@@ -166,8 +221,6 @@ public class CollisionProcessor {
     public void detectCollision(RigidBody body1, RigidBody body2, BVNode left, BVNode right) {
     	Disc leftDisk = left.boundingDisc;    	
     	Disc rightDisk = right.boundingDisc;
-//    	if (left.alreadyVisited(visitID) && right.alreadyVisited(visitID))
-//    		return;
     	left.updateBoundingDisk(visitID);
     	right.updateBoundingDisk(visitID);
     	if (leftDisk.intersects(rightDisk)) {
@@ -177,31 +230,18 @@ public class CollisionProcessor {
     			Block b2 = right.leafBlock;    			
     			processCollision(body1,b1,body2,b2);
     		} else if (left.isLeaf()) {
-    			//Right block is not a leaf. 
-    			right.child1.boundingDisc.updatecW();
-    			right.child2.boundingDisc.updatecW();
-    			closest(left,right.child1,right.child2);
-    			detectCollision(body1,body2,left,closest);
-    			detectCollision(body1,body2,left,furthest);
+    			//Right block is not a leaf.
+    			detectCollision(body1,body2,left,right.child1);
+    			detectCollision(body1,body2,left,right.child2);
     		} else if (right.isLeaf()) {
     			//Left block is not a leaf.
-    			left.child1.boundingDisc.updatecW();
-    			left.child2.boundingDisc.updatecW();
-    			closest(right,left.child1,left.child2);	
-    			detectCollision(body1,body2,closest,right);
-    			detectCollision(body1,body2,furthest,right);
+    			detectCollision(body1,body2,left.child1,right);
+    			detectCollision(body1,body2,left.child2,right);
     		} else {
-    			largest(left,right);
-    			largest.child1.boundingDisc.updatecW();
-    			largest.child2.boundingDisc.updatecW();
-    			closest(smallest,largest.child1,largest.child2);    			
-    			if (largest.equals(left)) {
-        			detectCollision(body1,body2,closest,smallest);
-        			detectCollision(body1,body2,furthest,smallest);
-    			} else {
-        			detectCollision(body1,body2,smallest,closest);
-        			detectCollision(body1,body2,smallest,furthest);
-    			}
+    			detectCollision(body1,body2,left.child1,right.child1);
+    			detectCollision(body1,body2,left.child1,right.child2);
+    			detectCollision(body1,body2,left.child2,right.child1);
+    			detectCollision(body1,body2,left.child2,right.child2);    			
     		}
     	}
     }	    

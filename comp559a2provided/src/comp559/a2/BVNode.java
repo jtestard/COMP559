@@ -106,6 +106,10 @@ public class BVNode {
     	return this.visitID == visitID;
     }
     
+    public void updateButNotVisit() {
+    	this.boundingDisc.updatecW();
+    }
+    
     /**
      * Draws the bounding volume spheres
      * @param drawable

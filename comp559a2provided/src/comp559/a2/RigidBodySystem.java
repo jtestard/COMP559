@@ -211,7 +211,7 @@ public class RigidBodySystem {
     private BooleanParameter drawBoundingVolumes = new BooleanParameter( "draw root bounding volumes", false );
     private BooleanParameter drawAllBoundingVolumes = new BooleanParameter( "draw ALL bounding volumes", false );
     private BooleanParameter drawBoundingVolumesUsed = new BooleanParameter( "draw bounding volumes used", false );
-    private BooleanParameter drawCOMs = new BooleanParameter( "draw center of mass positions", false );
+    public BooleanParameter drawCOMs = new BooleanParameter( "draw center of mass positions", false );
     private BooleanParameter drawContacts = new BooleanParameter( "draw contact locations", false );
     private BooleanParameter drawContactGraph = new BooleanParameter( "draw contact graph", false );
     private BooleanParameter processCollisions = new BooleanParameter( "process collisions", true );

@@ -290,6 +290,61 @@ public class A2App implements SceneGraphNode, Interactor {
         });                
         vfp.add( hfp2.getPanel() );
         
+        JButton delicate = new JButton("delicate scene");
+        delicate.addActionListener( new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+            	loadSystem("data2/delicate.png");
+            	Block.alpha = 0.5f;
+            	system.drawCOMs.setValue(true);
+            }
+        });
+        vfp.add(delicate);
+        
+        JButton tower100 = new JButton("tower100 scene");
+        tower100.addActionListener( new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+            	loadSystem("data2/tower100.png");
+            	Block.alpha = 0.5f;
+            	system.drawCOMs.setValue(true);
+            }
+        });
+        vfp.add(tower100);
+        
+        JButton wallWideSparseHigh = new JButton("wallWideSparseHigh scene");
+        wallWideSparseHigh.addActionListener( new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+            	loadSystem("data2/wallWideSparseHigh.png");
+            	Block.alpha = 0.5f;
+            	system.drawCOMs.setValue(true);
+            }
+        });
+        vfp.add(wallWideSparseHigh);
+        
+        JButton wallWideDenseHigh = new JButton("wallWideDenseHigh scene");
+        wallWideDenseHigh.addActionListener( new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+            	loadSystem("data2/wallWideDenseHigh.png");
+            	Block.alpha = 0.5f;
+            	system.drawCOMs.setValue(true);
+            }
+        });
+        vfp.add(wallWideDenseHigh);        
+
+        JButton demo = new JButton("demo scene");
+        demo.addActionListener( new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+            	loadSystem("data2/art.png");
+            	Block.alpha = 0.5f;
+            	system.drawCOMs.setValue(true);
+            }
+        });
+        vfp.add(demo); 
+        
         vfp.add( hideOverlay.getControls() );
         vfp.add( drawGraphs.getControls() );
         
